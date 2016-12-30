@@ -60,26 +60,31 @@ module.exports = class PermissionService extends Service {
     }
     else if (this.app.config.database.orm === 'waterline') {
       return new Promise((done) => {
-        this.app.orm.User.findOne({where: {id: user.id}}).populate('roles').exec((err, dbuser) => {
-          if (!err){
-            const roles = dbuser.roles
-            const promises = []
-            roles.forEach(role => {
-              promises.push(this.isAllowed(role.name, resourceName, actionName))
-            })
-            Promise.all(promises).then(permissions => {
-              const perms = []
-              permissions.forEach(perm => {
-                if (perm != null) {
-                  perms.push(perm)
-                }
+        this.app.orm.User.findOne({where: {id: user.id}})
+          .populate(_.get(this.app.config, 'permissions.userRoleFieldName', 'roles'))
+          .exec((err, dbuser) => {
+            if (!err){
+              const promises = []
+              if(user)
+              {
+                const roles = dbuser.roles
+                roles.forEach(role => {
+                  promises.push(this.isAllowed(role.name, resourceName, actionName))
+                })
+              }
+              Promise.all(promises).then(permissions => {
+                const perms = []
+                permissions.forEach(perm => {
+                  if (perm != null) {
+                    perms.push(perm)
+                  }
+                })
+                done(perms)
               })
-              done(perms)
-            })
-          }
-          else {
-            done(err)
-          }
+            }
+            else {
+              done(err)
+            }
         })
       })
     }
